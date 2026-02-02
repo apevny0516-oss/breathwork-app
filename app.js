@@ -10,22 +10,46 @@ const cueVolumeSlider = document.getElementById('cueVolume');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 
+// Admin Panel Elements
+const adminPanel = document.getElementById('adminPanel');
+const adminToggle = document.getElementById('adminToggle');
+const crossfadeSlider = document.getElementById('crossfadeSlider');
+const crossfadeValue = document.getElementById('crossfadeValue');
+const musicGainSlider = document.getElementById('musicGainSlider');
+const musicGainValue = document.getElementById('musicGainValue');
+const inhaleGainSlider = document.getElementById('inhaleGainSlider');
+const inhaleGainValue = document.getElementById('inhaleGainValue');
+const exhaleGainSlider = document.getElementById('exhaleGainSlider');
+const exhaleGainValue = document.getElementById('exhaleGainValue');
+const musicPositionInfo = document.getElementById('musicPositionInfo');
+const musicDurationInfo = document.getElementById('musicDurationInfo');
+const activeSourceInfo = document.getElementById('activeSourceInfo');
+
+// HTML Audio Elements (for preloading)
+const inhaleAudio = document.getElementById('inhaleAudio');
+const exhaleAudio = document.getElementById('exhaleAudio');
+const musicAudio = document.getElementById('musicAudio');
+
 // Web Audio API
 let audioContext = null;
-let inhaleBuffer = null;
-let exhaleBuffer = null;
-let musicBuffer = null;
 let cueVolume = 0.7;
 let musicVolume = 0.3;
 
+// Gain multipliers (from admin panel)
+let musicGainMultiplier = 1.0;
+let inhaleGainMultiplier = 1.0;
+let exhaleGainMultiplier = 1.0;
+
 // Music crossfade state
-const CROSSFADE_DURATION = 4; // seconds
-let currentMusicSource = null;
-let currentMusicGain = null;
-let nextMusicSource = null;
-let nextMusicGain = null;
+let CROSSFADE_DURATION = 4; // seconds (adjustable via admin)
+let musicSource1 = null;
+let musicGain1 = null;
+let musicSource2 = null;
+let musicGain2 = null;
+let activeSource = 1; // Which source is currently the "main" one
 let musicStartTime = 0;
-let isCrossfading = false;
+let musicDuration = 0;
+let crossfadeScheduled = false;
 
 // Breathing Patterns Configuration
 const breathingPatterns = {
@@ -44,196 +68,20 @@ let animationFrameId = null;
 let sessionStartTime = 0;
 let sessionDuration = 0;
 let currentPhase = 'ready';
-let audioLoaded = false;
 
-// Initialize Web Audio API and load audio buffers
-async function initAudio() {
-    try {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // Load and decode all audio files
-        const [inhaleResponse, exhaleResponse, musicResponse] = await Promise.all([
-            fetch('Audio/inhale.mp3'),
-            fetch('Audio/exhale.mp3'),
-            fetch('Audio/music1.m4a')
-        ]);
-        
-        const [inhaleData, exhaleData, musicData] = await Promise.all([
-            inhaleResponse.arrayBuffer(),
-            exhaleResponse.arrayBuffer(),
-            musicResponse.arrayBuffer()
-        ]);
-        
-        [inhaleBuffer, exhaleBuffer, musicBuffer] = await Promise.all([
-            audioContext.decodeAudioData(inhaleData),
-            audioContext.decodeAudioData(exhaleData),
-            audioContext.decodeAudioData(musicData)
-        ]);
-        
-        audioLoaded = true;
-        startBtn.textContent = 'Start Session';
-        startBtn.disabled = false;
-        console.log('Audio loaded successfully');
-        console.log('Music duration:', musicBuffer.duration, 'seconds');
-    } catch (error) {
-        console.error('Error loading audio:', error);
-        audioLoaded = false;
-        startBtn.textContent = 'Start Session';
-        startBtn.disabled = false;
-    }
-}
-
-// Play a sound buffer using Web Audio API (instant, no cut-off)
-function playCueSound(buffer) {
-    if (!audioContext || !buffer) return;
-    
-    if (audioContext.state === 'suspended') {
-        audioContext.resume();
-    }
-    
-    const source = audioContext.createBufferSource();
-    const gainNode = audioContext.createGain();
-    
-    source.buffer = buffer;
-    gainNode.gain.value = cueVolume;
-    
-    source.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    source.start(0);
-}
-
-// Start background music with crossfade looping
-function startMusic() {
-    if (!audioContext || !musicBuffer) return;
-    
-    if (audioContext.state === 'suspended') {
-        audioContext.resume();
-    }
-    
-    // Create the first music source
-    currentMusicSource = audioContext.createBufferSource();
-    currentMusicGain = audioContext.createGain();
-    
-    currentMusicSource.buffer = musicBuffer;
-    currentMusicGain.gain.value = musicVolume;
-    
-    currentMusicSource.connect(currentMusicGain);
-    currentMusicGain.connect(audioContext.destination);
-    
-    musicStartTime = audioContext.currentTime;
-    isCrossfading = false;
-    
-    currentMusicSource.start(0);
-}
-
-// Stop all music
-function stopMusic() {
-    try {
-        if (currentMusicSource) {
-            currentMusicSource.stop();
-            currentMusicSource.disconnect();
-            currentMusicSource = null;
+// Wait for audio to be ready
+function waitForAudioReady(audioElement) {
+    return new Promise((resolve) => {
+        if (audioElement.readyState >= 3) {
+            resolve();
+        } else {
+            audioElement.addEventListener('canplaythrough', () => resolve(), { once: true });
         }
-        if (currentMusicGain) {
-            currentMusicGain.disconnect();
-            currentMusicGain = null;
-        }
-        if (nextMusicSource) {
-            nextMusicSource.stop();
-            nextMusicSource.disconnect();
-            nextMusicSource = null;
-        }
-        if (nextMusicGain) {
-            nextMusicGain.disconnect();
-            nextMusicGain = null;
-        }
-    } catch (e) {
-        // Ignore errors when stopping already stopped sources
-    }
-    isCrossfading = false;
-}
-
-// Check and handle music crossfade
-function updateMusicCrossfade() {
-    if (!audioContext || !musicBuffer || !currentMusicSource) return;
-    
-    const elapsed = audioContext.currentTime - musicStartTime;
-    const trackDuration = musicBuffer.duration;
-    const crossfadeStart = trackDuration - CROSSFADE_DURATION;
-    
-    // Start crossfade when we're CROSSFADE_DURATION seconds from the end
-    if (elapsed >= crossfadeStart && !isCrossfading) {
-        isCrossfading = true;
-        
-        // Create the next music source (starts from beginning)
-        nextMusicSource = audioContext.createBufferSource();
-        nextMusicGain = audioContext.createGain();
-        
-        nextMusicSource.buffer = musicBuffer;
-        nextMusicGain.gain.value = 0; // Start silent
-        
-        nextMusicSource.connect(nextMusicGain);
-        nextMusicGain.connect(audioContext.destination);
-        
-        // Start the next track
-        nextMusicSource.start(0);
-        
-        // Crossfade: fade out current, fade in next
-        const now = audioContext.currentTime;
-        currentMusicGain.gain.setValueAtTime(musicVolume, now);
-        currentMusicGain.gain.linearRampToValueAtTime(0, now + CROSSFADE_DURATION);
-        
-        nextMusicGain.gain.setValueAtTime(0, now);
-        nextMusicGain.gain.linearRampToValueAtTime(musicVolume, now + CROSSFADE_DURATION);
-        
-        // Schedule cleanup and swap after crossfade completes
-        setTimeout(() => {
-            if (!isSessionActive) return;
-            
-            // Clean up old source
-            try {
-                if (currentMusicSource) {
-                    currentMusicSource.stop();
-                    currentMusicSource.disconnect();
-                }
-                if (currentMusicGain) {
-                    currentMusicGain.disconnect();
-                }
-            } catch (e) {
-                // Ignore - source may have already stopped
-            }
-            
-            // Swap: next becomes current
-            currentMusicSource = nextMusicSource;
-            currentMusicGain = nextMusicGain;
-            nextMusicSource = null;
-            nextMusicGain = null;
-            
-            // Reset timing for the new loop
-            musicStartTime = audioContext.currentTime;
-            isCrossfading = false;
-            
-        }, CROSSFADE_DURATION * 1000);
-    }
-}
-
-// Update music volume (called when slider changes)
-function updateMusicVolume() {
-    musicVolume = musicVolumeSlider.value / 100;
-    
-    // Update currently playing music if active
-    if (currentMusicGain && !isCrossfading) {
-        currentMusicGain.gain.value = musicVolume;
-    }
-}
-
-function updateCueVolume() {
-    cueVolume = cueVolumeSlider.value / 100;
+    });
 }
 
 // Initialize
-function init() {
+async function init() {
     startBtn.textContent = 'Loading...';
     startBtn.disabled = true;
     
@@ -248,7 +96,182 @@ function init() {
 
     updateTimeDisplay();
     
-    initAudio();
+    // Wait for audio files to load
+    try {
+        await Promise.all([
+            waitForAudioReady(inhaleAudio),
+            waitForAudioReady(exhaleAudio),
+            waitForAudioReady(musicAudio)
+        ]);
+        console.log('All audio loaded');
+        console.log('Music duration:', musicAudio.duration, 'seconds');
+        musicDuration = musicAudio.duration;
+    } catch (e) {
+        console.error('Error loading audio:', e);
+    }
+    
+    // Create audio context
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    startBtn.textContent = 'Start Session';
+    startBtn.disabled = false;
+}
+
+// Play cue sound using HTML audio (clone for overlapping)
+function playCueSound(audioElement, gainMultiplier = 1.0) {
+    const clone = audioElement.cloneNode();
+    clone.volume = Math.min(1, cueVolume * gainMultiplier);
+    clone.play().catch(e => console.log('Cue play error:', e));
+}
+
+// Create a media element source for music
+function createMusicSource(audioElement) {
+    // We need to clone the audio element for the second source
+    const audio = audioElement.cloneNode();
+    audio.currentTime = 0;
+    
+    const source = audioContext.createMediaElementSource(audio);
+    const gain = audioContext.createGain();
+    
+    source.connect(gain);
+    gain.connect(audioContext.destination);
+    
+    return { audio, source, gain };
+}
+
+// Start background music with crossfade capability
+function startMusic() {
+    if (!audioContext) return;
+    
+    if (audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+    
+    // Create first music instance
+    const music1 = createMusicSource(musicAudio);
+    musicSource1 = music1.source;
+    musicGain1 = music1.gain;
+    musicGain1.gain.value = musicVolume * musicGainMultiplier;
+    
+    music1.audio.play().catch(e => console.log('Music play error:', e));
+    
+    // Store reference to the audio element
+    musicSource1._audioElement = music1.audio;
+    
+    musicStartTime = audioContext.currentTime;
+    activeSource = 1;
+    crossfadeScheduled = false;
+    
+    console.log('Music started, duration:', musicDuration);
+}
+
+// Stop all music
+function stopMusic() {
+    if (musicSource1 && musicSource1._audioElement) {
+        musicSource1._audioElement.pause();
+        musicSource1._audioElement = null;
+    }
+    if (musicSource2 && musicSource2._audioElement) {
+        musicSource2._audioElement.pause();
+        musicSource2._audioElement = null;
+    }
+    musicSource1 = null;
+    musicSource2 = null;
+    musicGain1 = null;
+    musicGain2 = null;
+    crossfadeScheduled = false;
+}
+
+// Check and handle music crossfade
+function updateMusicCrossfade() {
+    if (!audioContext || !musicSource1) return;
+    
+    const currentAudio = activeSource === 1 
+        ? musicSource1._audioElement 
+        : (musicSource2 ? musicSource2._audioElement : null);
+    
+    if (!currentAudio) return;
+    
+    const currentTime = currentAudio.currentTime;
+    const timeUntilEnd = musicDuration - currentTime;
+    
+    // Start crossfade when we're CROSSFADE_DURATION seconds from the end
+    if (timeUntilEnd <= CROSSFADE_DURATION && timeUntilEnd > 0 && !crossfadeScheduled) {
+        crossfadeScheduled = true;
+        console.log('Starting crossfade, time until end:', timeUntilEnd);
+        
+        // Create the next music instance
+        const music2 = createMusicSource(musicAudio);
+        
+        if (activeSource === 1) {
+            musicSource2 = music2.source;
+            musicGain2 = music2.gain;
+            musicGain2.gain.value = 0; // Start silent
+            musicSource2._audioElement = music2.audio;
+        } else {
+            musicSource1 = music2.source;
+            musicGain1 = music2.gain;
+            musicGain1.gain.value = 0; // Start silent
+            musicSource1._audioElement = music2.audio;
+        }
+        
+        // Start the new track
+        music2.audio.play().catch(e => console.log('Crossfade play error:', e));
+        
+        // Get current gain nodes
+        const fadeOutGain = activeSource === 1 ? musicGain1 : musicGain2;
+        const fadeInGain = activeSource === 1 ? musicGain2 : musicGain1;
+        
+        // Perform crossfade
+        const now = audioContext.currentTime;
+        const fadeDuration = timeUntilEnd; // Fade for remaining time
+        const effectiveVolume = musicVolume * musicGainMultiplier;
+        
+        fadeOutGain.gain.setValueAtTime(effectiveVolume, now);
+        fadeOutGain.gain.linearRampToValueAtTime(0, now + fadeDuration);
+        
+        fadeInGain.gain.setValueAtTime(0, now);
+        fadeInGain.gain.linearRampToValueAtTime(effectiveVolume, now + fadeDuration);
+        
+        // Schedule cleanup after crossfade
+        setTimeout(() => {
+            if (!isSessionActive) return;
+            
+            // Stop and clean up the old source
+            const oldAudio = activeSource === 1 
+                ? musicSource1._audioElement 
+                : musicSource2._audioElement;
+            
+            if (oldAudio) {
+                oldAudio.pause();
+            }
+            
+            // Swap active source
+            activeSource = activeSource === 1 ? 2 : 1;
+            crossfadeScheduled = false;
+            
+            console.log('Crossfade complete, active source:', activeSource);
+            
+        }, fadeDuration * 1000 + 100);
+    }
+}
+
+// Update music volume
+function updateMusicVolume() {
+    musicVolume = musicVolumeSlider.value / 100;
+    
+    const effectiveVolume = musicVolume * musicGainMultiplier;
+    
+    if (musicGain1 && activeSource === 1 && !crossfadeScheduled) {
+        musicGain1.gain.value = effectiveVolume;
+    }
+    if (musicGain2 && activeSource === 2 && !crossfadeScheduled) {
+        musicGain2.gain.value = effectiveVolume;
+    }
+}
+
+function updateCueVolume() {
+    cueVolume = cueVolumeSlider.value / 100;
 }
 
 // Time Display
@@ -287,7 +310,7 @@ function startSession() {
     breathingCircle.style.transition = `transform ${transitionDuration}s ease-in-out, box-shadow ${transitionDuration}s ease-in-out`;
     breathingCircle.classList.add('active');
 
-    // Start background music with crossfade looping
+    // Start background music
     startMusic();
 
     tick();
@@ -305,7 +328,6 @@ function stopSession() {
         animationFrameId = null;
     }
 
-    // Stop music
     stopMusic();
 
     breathingCircle.classList.remove('inhale', 'exhale', 'active');
@@ -335,9 +357,8 @@ function tick() {
     timeRemaining.textContent = formatTime(Math.ceil(remaining / 1000));
 
     updateBreathingPhase(elapsed);
-    
-    // Check for music crossfade
     updateMusicCrossfade();
+    updateAdminInfo();
 
     animationFrameId = requestAnimationFrame(tick);
 }
@@ -397,14 +418,14 @@ function onPhaseChange(newPhase) {
             breathingCircle.classList.add('inhale');
             breathInstruction.textContent = 'Inhale';
             breathInstruction.classList.add('inhale');
-            playCueSound(inhaleBuffer);
+            playCueSound(inhaleAudio, inhaleGainMultiplier);
             break;
             
         case 'exhale':
             breathingCircle.classList.add('exhale');
             breathInstruction.textContent = 'Exhale';
             breathInstruction.classList.add('exhale');
-            playCueSound(exhaleBuffer);
+            playCueSound(exhaleAudio, exhaleGainMultiplier);
             break;
             
         case 'hold-in':
@@ -414,5 +435,60 @@ function onPhaseChange(newPhase) {
     }
 }
 
+// Admin Panel Functions
+function initAdminPanel() {
+    // Toggle panel
+    adminToggle.addEventListener('click', () => {
+        adminPanel.classList.toggle('open');
+    });
+    
+    // Crossfade duration
+    crossfadeSlider.addEventListener('input', () => {
+        CROSSFADE_DURATION = parseFloat(crossfadeSlider.value);
+        crossfadeValue.textContent = CROSSFADE_DURATION;
+    });
+    
+    // Music gain
+    musicGainSlider.addEventListener('input', () => {
+        musicGainMultiplier = parseFloat(musicGainSlider.value);
+        musicGainValue.textContent = musicGainMultiplier.toFixed(1);
+        // Update currently playing music
+        updateMusicVolume();
+    });
+    
+    // Inhale gain
+    inhaleGainSlider.addEventListener('input', () => {
+        inhaleGainMultiplier = parseFloat(inhaleGainSlider.value);
+        inhaleGainValue.textContent = inhaleGainMultiplier.toFixed(1);
+    });
+    
+    // Exhale gain
+    exhaleGainSlider.addEventListener('input', () => {
+        exhaleGainMultiplier = parseFloat(exhaleGainSlider.value);
+        exhaleGainValue.textContent = exhaleGainMultiplier.toFixed(1);
+    });
+}
+
+// Update admin info display
+function updateAdminInfo() {
+    if (!isSessionActive) {
+        musicPositionInfo.textContent = '--';
+        activeSourceInfo.textContent = '--';
+        return;
+    }
+    
+    const currentAudio = activeSource === 1 
+        ? (musicSource1 ? musicSource1._audioElement : null)
+        : (musicSource2 ? musicSource2._audioElement : null);
+    
+    if (currentAudio) {
+        musicPositionInfo.textContent = currentAudio.currentTime.toFixed(1) + 's';
+    }
+    
+    musicDurationInfo.textContent = musicDuration.toFixed(1) + 's';
+    activeSourceInfo.textContent = activeSource + (crossfadeScheduled ? ' (crossfading)' : '');
+}
+
 // Initialize the app
 init();
+initAdminPanel();

@@ -357,3 +357,104 @@ footer {
 .controls, .btn {
     transition: opacity 0.3s ease;
 }
+
+/* Admin Panel */
+.admin-panel {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    z-index: 1000;
+}
+
+.admin-toggle {
+    padding: 0.5rem 1rem;
+    background: rgba(239, 68, 68, 0.8);
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.admin-toggle:hover {
+    background: rgba(239, 68, 68, 1);
+}
+
+.admin-content {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    margin-bottom: 0.5rem;
+    width: 280px;
+    padding: 1rem;
+    background: rgba(30, 30, 40, 0.95);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 0.75rem;
+    backdrop-filter: blur(10px);
+}
+
+.admin-panel.open .admin-content {
+    display: block;
+}
+
+.admin-content h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #ef4444;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.admin-group {
+    margin-bottom: 1rem;
+}
+
+.admin-group label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.admin-group label span {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.admin-group input[type="range"] {
+    height: 4px;
+}
+
+.admin-group input[type="range"]::-webkit-slider-thumb {
+    width: 14px;
+    height: 14px;
+    background: #ef4444;
+}
+
+.admin-group input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: #ef4444;
+}
+
+.admin-info {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-info p {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    font-family: monospace;
+}
+
+.admin-info span {
+    color: #22d3ee;
+}

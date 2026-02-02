@@ -79,7 +79,46 @@
         <footer>
             <p>Breathe deeply. Live fully.</p>
         </footer>
+
+        <!-- Admin Panel -->
+        <div class="admin-panel" id="adminPanel">
+            <button class="admin-toggle" id="adminToggle">Admin</button>
+            <div class="admin-content" id="adminContent">
+                <h3>Audio Settings</h3>
+                
+                <div class="admin-group">
+                    <label>Crossfade Duration: <span id="crossfadeValue">4</span>s</label>
+                    <input type="range" id="crossfadeSlider" min="1" max="10" step="0.5" value="4">
+                </div>
+
+                <div class="admin-group">
+                    <label>Music Gain: <span id="musicGainValue">1.0</span>x</label>
+                    <input type="range" id="musicGainSlider" min="0" max="3" step="0.1" value="1">
+                </div>
+
+                <div class="admin-group">
+                    <label>Inhale Gain: <span id="inhaleGainValue">1.0</span>x</label>
+                    <input type="range" id="inhaleGainSlider" min="0" max="3" step="0.1" value="1">
+                </div>
+
+                <div class="admin-group">
+                    <label>Exhale Gain: <span id="exhaleGainValue">1.0</span>x</label>
+                    <input type="range" id="exhaleGainSlider" min="0" max="3" step="0.1" value="1">
+                </div>
+
+                <div class="admin-info">
+                    <p>Music Position: <span id="musicPositionInfo">--</span></p>
+                    <p>Music Duration: <span id="musicDurationInfo">--</span></p>
+                    <p>Active Source: <span id="activeSourceInfo">--</span></p>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <!-- Audio Elements (for preloading) -->
+    <audio id="inhaleAudio" src="Audio/inhale.mp3" preload="auto"></audio>
+    <audio id="exhaleAudio" src="Audio/exhale.mp3" preload="auto"></audio>
+    <audio id="musicAudio" src="Audio/music1.m4a" preload="auto"></audio>
 
     <script src="app.js"></script>
 </body>
