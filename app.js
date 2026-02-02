@@ -10,23 +10,7 @@ const cueVolumeSlider = document.getElementById('cueVolume');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 
-// Admin Panel Elements
-const adminPanel = document.getElementById('adminPanel');
-const adminToggle = document.getElementById('adminToggle');
-const crossfadeSlider = document.getElementById('crossfadeSlider');
-const crossfadeValue = document.getElementById('crossfadeValue');
-const musicGainSlider = document.getElementById('musicGainSlider');
-const musicGainValue = document.getElementById('musicGainValue');
-const inhaleGainSlider = document.getElementById('inhaleGainSlider');
-const inhaleGainValue = document.getElementById('inhaleGainValue');
-const exhaleGainSlider = document.getElementById('exhaleGainSlider');
-const exhaleGainValue = document.getElementById('exhaleGainValue');
-const musicPositionInfo = document.getElementById('musicPositionInfo');
-const musicDurationInfo = document.getElementById('musicDurationInfo');
-const activeSourceInfo = document.getElementById('activeSourceInfo');
-const crossfadeDurationInfo = document.getElementById('crossfadeDurationInfo');
-const testInhaleBtn = document.getElementById('testInhaleBtn');
-const testExhaleBtn = document.getElementById('testExhaleBtn');
+// Admin Panel Elements - accessed directly via getElementById in handlers
 
 // HTML Audio Elements (for preloading)
 const inhaleAudio = document.getElementById('inhaleAudio');
@@ -441,78 +425,63 @@ function onPhaseChange(newPhase) {
 // Admin Panel Functions
 function initAdminPanel() {
     console.log('Initializing admin panel...');
-    console.log('Admin elements:', { adminPanel, adminToggle, crossfadeSlider });
-    
-    if (!adminPanel || !adminToggle) {
-        console.error('Admin panel elements not found!');
-        return;
-    }
     
     // Toggle panel
-    adminToggle.addEventListener('click', () => {
-        console.log('Admin toggle clicked');
-        adminPanel.classList.toggle('open');
-    });
+    document.getElementById('adminToggle').onclick = function() {
+        document.getElementById('adminPanel').classList.toggle('open');
+    };
     
     // Crossfade duration
-    if (crossfadeSlider) {
-        crossfadeSlider.addEventListener('input', () => {
-            CROSSFADE_DURATION = parseFloat(crossfadeSlider.value);
-            crossfadeValue.textContent = CROSSFADE_DURATION;
-            if (crossfadeDurationInfo) crossfadeDurationInfo.textContent = CROSSFADE_DURATION;
-            console.log('Crossfade duration changed to:', CROSSFADE_DURATION);
-        });
-    }
-    
-    // Test buttons
-    if (testInhaleBtn) {
-        testInhaleBtn.addEventListener('click', () => {
-            console.log('Testing inhale with gain:', inhaleGainMultiplier);
-            playCueSound(inhaleAudio, inhaleGainMultiplier);
-        });
-    }
-    
-    if (testExhaleBtn) {
-        testExhaleBtn.addEventListener('click', () => {
-            console.log('Testing exhale with gain:', exhaleGainMultiplier);
-            playCueSound(exhaleAudio, exhaleGainMultiplier);
-        });
-    }
+    document.getElementById('crossfadeSlider').oninput = function() {
+        CROSSFADE_DURATION = parseFloat(this.value);
+        document.getElementById('crossfadeValue').textContent = CROSSFADE_DURATION;
+        document.getElementById('crossfadeDurationInfo').textContent = CROSSFADE_DURATION;
+        console.log('Crossfade:', CROSSFADE_DURATION);
+    };
     
     // Music gain
-    if (musicGainSlider) {
-        musicGainSlider.addEventListener('input', () => {
-            musicGainMultiplier = parseFloat(musicGainSlider.value);
-            musicGainValue.textContent = musicGainMultiplier.toFixed(1);
-            console.log('Music gain changed to:', musicGainMultiplier);
-            // Update currently playing music
-            updateMusicVolume();
-        });
-    }
+    document.getElementById('musicGainSlider').oninput = function() {
+        musicGainMultiplier = parseFloat(this.value);
+        document.getElementById('musicGainValue').textContent = musicGainMultiplier.toFixed(1);
+        console.log('Music gain:', musicGainMultiplier);
+        updateMusicVolume();
+    };
     
     // Inhale gain
-    if (inhaleGainSlider) {
-        inhaleGainSlider.addEventListener('input', () => {
-            inhaleGainMultiplier = parseFloat(inhaleGainSlider.value);
-            inhaleGainValue.textContent = inhaleGainMultiplier.toFixed(1);
-            console.log('Inhale gain changed to:', inhaleGainMultiplier);
-        });
-    }
+    document.getElementById('inhaleGainSlider').oninput = function() {
+        inhaleGainMultiplier = parseFloat(this.value);
+        document.getElementById('inhaleGainValue').textContent = inhaleGainMultiplier.toFixed(1);
+        console.log('Inhale gain:', inhaleGainMultiplier);
+    };
     
     // Exhale gain
-    if (exhaleGainSlider) {
-        exhaleGainSlider.addEventListener('input', () => {
-            exhaleGainMultiplier = parseFloat(exhaleGainSlider.value);
-            exhaleGainValue.textContent = exhaleGainMultiplier.toFixed(1);
-            console.log('Exhale gain changed to:', exhaleGainMultiplier);
-        });
-    }
+    document.getElementById('exhaleGainSlider').oninput = function() {
+        exhaleGainMultiplier = parseFloat(this.value);
+        document.getElementById('exhaleGainValue').textContent = exhaleGainMultiplier.toFixed(1);
+        console.log('Exhale gain:', exhaleGainMultiplier);
+    };
+    
+    // Test buttons
+    document.getElementById('testInhaleBtn').onclick = function() {
+        console.log('Test inhale, gain:', inhaleGainMultiplier);
+        playCueSound(inhaleAudio, inhaleGainMultiplier);
+    };
+    
+    document.getElementById('testExhaleBtn').onclick = function() {
+        console.log('Test exhale, gain:', exhaleGainMultiplier);
+        playCueSound(exhaleAudio, exhaleGainMultiplier);
+    };
     
     console.log('Admin panel initialized');
 }
 
 // Update admin info display
 function updateAdminInfo() {
+    const crossfadeDurationInfo = document.getElementById('crossfadeDurationInfo');
+    const musicPositionInfo = document.getElementById('musicPositionInfo');
+    const musicDurationInfo = document.getElementById('musicDurationInfo');
+    const activeSourceInfo = document.getElementById('activeSourceInfo');
+    
     if (crossfadeDurationInfo) {
         crossfadeDurationInfo.textContent = CROSSFADE_DURATION;
     }
