@@ -10,14 +10,22 @@ const cueVolumeSlider = document.getElementById('cueVolume');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 
-// Audio Elements (for background music - HTML5 audio works fine for long tracks)
-const backgroundMusic = document.getElementById('backgroundMusic');
-
-// Web Audio API for cue sounds (instant playback)
+// Web Audio API
 let audioContext = null;
 let inhaleBuffer = null;
 let exhaleBuffer = null;
+let musicBuffer = null;
 let cueVolume = 0.7;
+let musicVolume = 0.3;
+
+// Music crossfade state
+const CROSSFADE_DURATION = 4; // seconds
+let currentMusicSource = null;
+let currentMusicGain = null;
+let nextMusicSource = null;
+let nextMusicGain = null;
+let musicStartTime = 0;
+let isCrossfading = false;
 
 // Breathing Patterns Configuration
 const breathingPatterns = {
@@ -43,29 +51,32 @@ async function initAudio() {
     try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         
-        // Load and decode audio files
-        const [inhaleResponse, exhaleResponse] = await Promise.all([
+        // Load and decode all audio files
+        const [inhaleResponse, exhaleResponse, musicResponse] = await Promise.all([
             fetch('Audio/inhale.mp3'),
-            fetch('Audio/exhale.mp3')
+            fetch('Audio/exhale.mp3'),
+            fetch('Audio/music1.m4a')
         ]);
         
-        const [inhaleData, exhaleData] = await Promise.all([
+        const [inhaleData, exhaleData, musicData] = await Promise.all([
             inhaleResponse.arrayBuffer(),
-            exhaleResponse.arrayBuffer()
+            exhaleResponse.arrayBuffer(),
+            musicResponse.arrayBuffer()
         ]);
         
-        [inhaleBuffer, exhaleBuffer] = await Promise.all([
+        [inhaleBuffer, exhaleBuffer, musicBuffer] = await Promise.all([
             audioContext.decodeAudioData(inhaleData),
-            audioContext.decodeAudioData(exhaleData)
+            audioContext.decodeAudioData(exhaleData),
+            audioContext.decodeAudioData(musicData)
         ]);
         
         audioLoaded = true;
         startBtn.textContent = 'Start Session';
         startBtn.disabled = false;
         console.log('Audio loaded successfully');
+        console.log('Music duration:', musicBuffer.duration, 'seconds');
     } catch (error) {
         console.error('Error loading audio:', error);
-        // Fallback - still allow session to start
         audioLoaded = false;
         startBtn.textContent = 'Start Session';
         startBtn.disabled = false;
@@ -76,7 +87,6 @@ async function initAudio() {
 function playCueSound(buffer) {
     if (!audioContext || !buffer) return;
     
-    // Resume audio context if suspended (browser autoplay policy)
     if (audioContext.state === 'suspended') {
         audioContext.resume();
     }
@@ -93,9 +103,137 @@ function playCueSound(buffer) {
     source.start(0);
 }
 
+// Start background music with crossfade looping
+function startMusic() {
+    if (!audioContext || !musicBuffer) return;
+    
+    if (audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+    
+    // Create the first music source
+    currentMusicSource = audioContext.createBufferSource();
+    currentMusicGain = audioContext.createGain();
+    
+    currentMusicSource.buffer = musicBuffer;
+    currentMusicGain.gain.value = musicVolume;
+    
+    currentMusicSource.connect(currentMusicGain);
+    currentMusicGain.connect(audioContext.destination);
+    
+    musicStartTime = audioContext.currentTime;
+    isCrossfading = false;
+    
+    currentMusicSource.start(0);
+}
+
+// Stop all music
+function stopMusic() {
+    try {
+        if (currentMusicSource) {
+            currentMusicSource.stop();
+            currentMusicSource.disconnect();
+            currentMusicSource = null;
+        }
+        if (currentMusicGain) {
+            currentMusicGain.disconnect();
+            currentMusicGain = null;
+        }
+        if (nextMusicSource) {
+            nextMusicSource.stop();
+            nextMusicSource.disconnect();
+            nextMusicSource = null;
+        }
+        if (nextMusicGain) {
+            nextMusicGain.disconnect();
+            nextMusicGain = null;
+        }
+    } catch (e) {
+        // Ignore errors when stopping already stopped sources
+    }
+    isCrossfading = false;
+}
+
+// Check and handle music crossfade
+function updateMusicCrossfade() {
+    if (!audioContext || !musicBuffer || !currentMusicSource) return;
+    
+    const elapsed = audioContext.currentTime - musicStartTime;
+    const trackDuration = musicBuffer.duration;
+    const crossfadeStart = trackDuration - CROSSFADE_DURATION;
+    
+    // Start crossfade when we're CROSSFADE_DURATION seconds from the end
+    if (elapsed >= crossfadeStart && !isCrossfading) {
+        isCrossfading = true;
+        
+        // Create the next music source (starts from beginning)
+        nextMusicSource = audioContext.createBufferSource();
+        nextMusicGain = audioContext.createGain();
+        
+        nextMusicSource.buffer = musicBuffer;
+        nextMusicGain.gain.value = 0; // Start silent
+        
+        nextMusicSource.connect(nextMusicGain);
+        nextMusicGain.connect(audioContext.destination);
+        
+        // Start the next track
+        nextMusicSource.start(0);
+        
+        // Crossfade: fade out current, fade in next
+        const now = audioContext.currentTime;
+        currentMusicGain.gain.setValueAtTime(musicVolume, now);
+        currentMusicGain.gain.linearRampToValueAtTime(0, now + CROSSFADE_DURATION);
+        
+        nextMusicGain.gain.setValueAtTime(0, now);
+        nextMusicGain.gain.linearRampToValueAtTime(musicVolume, now + CROSSFADE_DURATION);
+        
+        // Schedule cleanup and swap after crossfade completes
+        setTimeout(() => {
+            if (!isSessionActive) return;
+            
+            // Clean up old source
+            try {
+                if (currentMusicSource) {
+                    currentMusicSource.stop();
+                    currentMusicSource.disconnect();
+                }
+                if (currentMusicGain) {
+                    currentMusicGain.disconnect();
+                }
+            } catch (e) {
+                // Ignore - source may have already stopped
+            }
+            
+            // Swap: next becomes current
+            currentMusicSource = nextMusicSource;
+            currentMusicGain = nextMusicGain;
+            nextMusicSource = null;
+            nextMusicGain = null;
+            
+            // Reset timing for the new loop
+            musicStartTime = audioContext.currentTime;
+            isCrossfading = false;
+            
+        }, CROSSFADE_DURATION * 1000);
+    }
+}
+
+// Update music volume (called when slider changes)
+function updateMusicVolume() {
+    musicVolume = musicVolumeSlider.value / 100;
+    
+    // Update currently playing music if active
+    if (currentMusicGain && !isCrossfading) {
+        currentMusicGain.gain.value = musicVolume;
+    }
+}
+
+function updateCueVolume() {
+    cueVolume = cueVolumeSlider.value / 100;
+}
+
 // Initialize
 function init() {
-    // Disable start button until audio is loaded
     startBtn.textContent = 'Loading...';
     startBtn.disabled = true;
     
@@ -110,17 +248,7 @@ function init() {
 
     updateTimeDisplay();
     
-    // Load audio buffers
     initAudio();
-}
-
-// Volume Controls
-function updateMusicVolume() {
-    backgroundMusic.volume = musicVolumeSlider.value / 100;
-}
-
-function updateCueVolume() {
-    cueVolume = cueVolumeSlider.value / 100;
 }
 
 // Time Display
@@ -145,29 +273,23 @@ function startSession() {
     startBtn.disabled = true;
     stopBtn.disabled = false;
 
-    // Resume audio context (required for user interaction)
     if (audioContext && audioContext.state === 'suspended') {
         audioContext.resume();
     }
 
-    // Get session duration in milliseconds
     sessionDuration = parseInt(sessionDurationSelect.value) * 60 * 1000;
     sessionStartTime = performance.now();
     
-    // Reset phase tracking
     currentPhase = 'ready';
 
-    // Set up breathing circle transition
     const pattern = breathingPatterns[breathingPatternSelect.value];
     const transitionDuration = Math.max(pattern.inhale, pattern.exhale);
     breathingCircle.style.transition = `transform ${transitionDuration}s ease-in-out, box-shadow ${transitionDuration}s ease-in-out`;
     breathingCircle.classList.add('active');
 
-    // Start background music
-    backgroundMusic.currentTime = 0;
-    backgroundMusic.play().catch(e => console.log('Music autoplay blocked:', e));
+    // Start background music with crossfade looping
+    startMusic();
 
-    // Start the main animation loop
     tick();
 }
 
@@ -178,30 +300,26 @@ function stopSession() {
     startBtn.disabled = false;
     stopBtn.disabled = true;
 
-    // Cancel animation frame
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
     }
 
-    // Stop audio
-    backgroundMusic.pause();
-    backgroundMusic.currentTime = 0;
+    // Stop music
+    stopMusic();
 
-    // Reset visuals
     breathingCircle.classList.remove('inhale', 'exhale', 'active');
     breathingCircle.style.transition = '';
     breathInstruction.textContent = 'Ready';
     breathInstruction.classList.remove('inhale', 'exhale');
     breathTimer.textContent = '0.0s';
     
-    // Reset state
     currentPhase = 'ready';
 
     updateTimeDisplay();
 }
 
-// Main animation loop - single source of truth for timing
+// Main animation loop
 function tick() {
     if (!isSessionActive) return;
 
@@ -209,19 +327,18 @@ function tick() {
     const elapsed = now - sessionStartTime;
     const remaining = sessionDuration - elapsed;
 
-    // Check if session is complete
     if (remaining <= 0) {
         stopSession();
         return;
     }
 
-    // Update session timer display
     timeRemaining.textContent = formatTime(Math.ceil(remaining / 1000));
 
-    // Calculate current breath phase based on elapsed time
     updateBreathingPhase(elapsed);
+    
+    // Check for music crossfade
+    updateMusicCrossfade();
 
-    // Continue the loop
     animationFrameId = requestAnimationFrame(tick);
 }
 
@@ -229,14 +346,11 @@ function tick() {
 function updateBreathingPhase(elapsed) {
     const pattern = breathingPatterns[breathingPatternSelect.value];
     
-    // Calculate total cycle duration
     const cycleDuration = (pattern.inhale + pattern.holdAfterInhale + 
                           pattern.exhale + pattern.holdAfterExhale) * 1000;
     
-    // Find position within current cycle
     const cyclePosition = elapsed % cycleDuration;
     
-    // Determine current phase and time within phase
     let phase;
     let phaseElapsed;
     let phaseDuration;
@@ -263,11 +377,9 @@ function updateBreathingPhase(elapsed) {
         phaseDuration = pattern.holdAfterExhale * 1000;
     }
     
-    // Update phase remaining time display
     const phaseRemaining = (phaseDuration - phaseElapsed) / 1000;
     breathTimer.textContent = phaseRemaining.toFixed(1) + 's';
     
-    // Handle phase transitions
     if (phase !== currentPhase) {
         onPhaseChange(phase);
     }
@@ -275,9 +387,8 @@ function updateBreathingPhase(elapsed) {
     currentPhase = phase;
 }
 
-// Handle phase transitions - play audio and update visuals
+// Handle phase transitions
 function onPhaseChange(newPhase) {
-    // Remove all phase classes
     breathingCircle.classList.remove('inhale', 'exhale');
     breathInstruction.classList.remove('inhale', 'exhale');
     
