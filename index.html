@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breathwork App</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>Breathwork</h1>
+            <p class="subtitle">Find your rhythm</p>
+        </header>
+
+        <main>
+            <!-- Breathing Circle -->
+            <div class="breathing-section">
+                <div class="breathing-circle" id="breathingCircle">
+                    <div class="circle-inner">
+                        <span class="breath-instruction" id="breathInstruction">Ready</span>
+                        <span class="breath-timer" id="breathTimer">0:00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Session Timer Display -->
+            <div class="session-timer" id="sessionTimer">
+                <span class="time-remaining" id="timeRemaining">5:00</span>
+                <span class="timer-label">remaining</span>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <!-- Breathing Pattern Selection -->
+                <div class="control-group">
+                    <label for="breathingPattern">Breathing Pattern</label>
+                    <select id="breathingPattern">
+                        <option value="buteyko">Buteyko (5.5s / 5.5s)</option>
+                    </select>
+                </div>
+
+                <!-- Session Duration -->
+                <div class="control-group">
+                    <label for="sessionDuration">Session Duration</label>
+                    <select id="sessionDuration">
+                        <option value="1">1 minute</option>
+                        <option value="3">3 minutes</option>
+                        <option value="5" selected>5 minutes</option>
+                        <option value="10">10 minutes</option>
+                        <option value="15">15 minutes</option>
+                        <option value="20">20 minutes</option>
+                        <option value="30">30 minutes</option>
+                    </select>
+                </div>
+
+                <!-- Volume Controls -->
+                <div class="control-group">
+                    <label for="musicVolume">Music Volume</label>
+                    <input type="range" id="musicVolume" min="0" max="100" value="30">
+                </div>
+
+                <div class="control-group">
+                    <label for="cueVolume">Voice Cue Volume</label>
+                    <input type="range" id="cueVolume" min="0" max="100" value="70">
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button class="btn btn-primary" id="startBtn">Start Session</button>
+                <button class="btn btn-secondary" id="stopBtn" disabled>Stop</button>
+            </div>
+        </main>
+
+        <footer>
+            <p>Breathe deeply. Live fully.</p>
+        </footer>
+    </div>
+
+    <!-- Audio Elements -->
+    <audio id="backgroundMusic" loop>
+        <source src="Audio/music1.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="inhaleSound">
+        <source src="Audio/inhale.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="exhaleSound">
+        <source src="Audio/exhale.mp3" type="audio/mpeg">
+    </audio>
+
+    <script src="app.js"></script>
+</body>
+</html>

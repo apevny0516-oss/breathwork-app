@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Logic Pro project files (large binary files)
+*.logicx/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Thumbnails
+._*
