@@ -81,7 +81,7 @@
         </footer>
 
         <!-- Admin Panel -->
-        <div class="admin-panel" id="adminPanel">
+        <div class="admin-panel open" id="adminPanel">
             <button class="admin-toggle" id="adminToggle">Admin</button>
             <div class="admin-content" id="adminContent">
                 <h3>Audio Settings</h3>
@@ -106,10 +106,16 @@
                     <input type="range" id="exhaleGainSlider" min="0" max="3" step="0.1" value="1">
                 </div>
 
+                <div class="admin-buttons">
+                    <button id="testInhaleBtn" class="admin-btn">Test Inhale</button>
+                    <button id="testExhaleBtn" class="admin-btn">Test Exhale</button>
+                </div>
+
                 <div class="admin-info">
                     <p>Music Position: <span id="musicPositionInfo">--</span></p>
                     <p>Music Duration: <span id="musicDurationInfo">--</span></p>
                     <p>Active Source: <span id="activeSourceInfo">--</span></p>
+                    <p>Crossfade: <span id="crossfadeDurationInfo">4</span>s</p>
                 </div>
             </div>
         </div>

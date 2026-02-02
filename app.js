@@ -24,6 +24,9 @@ const exhaleGainValue = document.getElementById('exhaleGainValue');
 const musicPositionInfo = document.getElementById('musicPositionInfo');
 const musicDurationInfo = document.getElementById('musicDurationInfo');
 const activeSourceInfo = document.getElementById('activeSourceInfo');
+const crossfadeDurationInfo = document.getElementById('crossfadeDurationInfo');
+const testInhaleBtn = document.getElementById('testInhaleBtn');
+const testExhaleBtn = document.getElementById('testExhaleBtn');
 
 // HTML Audio Elements (for preloading)
 const inhaleAudio = document.getElementById('inhaleAudio');
@@ -437,43 +440,86 @@ function onPhaseChange(newPhase) {
 
 // Admin Panel Functions
 function initAdminPanel() {
+    console.log('Initializing admin panel...');
+    console.log('Admin elements:', { adminPanel, adminToggle, crossfadeSlider });
+    
+    if (!adminPanel || !adminToggle) {
+        console.error('Admin panel elements not found!');
+        return;
+    }
+    
     // Toggle panel
     adminToggle.addEventListener('click', () => {
+        console.log('Admin toggle clicked');
         adminPanel.classList.toggle('open');
     });
     
     // Crossfade duration
-    crossfadeSlider.addEventListener('input', () => {
-        CROSSFADE_DURATION = parseFloat(crossfadeSlider.value);
-        crossfadeValue.textContent = CROSSFADE_DURATION;
-    });
+    if (crossfadeSlider) {
+        crossfadeSlider.addEventListener('input', () => {
+            CROSSFADE_DURATION = parseFloat(crossfadeSlider.value);
+            crossfadeValue.textContent = CROSSFADE_DURATION;
+            if (crossfadeDurationInfo) crossfadeDurationInfo.textContent = CROSSFADE_DURATION;
+            console.log('Crossfade duration changed to:', CROSSFADE_DURATION);
+        });
+    }
+    
+    // Test buttons
+    if (testInhaleBtn) {
+        testInhaleBtn.addEventListener('click', () => {
+            console.log('Testing inhale with gain:', inhaleGainMultiplier);
+            playCueSound(inhaleAudio, inhaleGainMultiplier);
+        });
+    }
+    
+    if (testExhaleBtn) {
+        testExhaleBtn.addEventListener('click', () => {
+            console.log('Testing exhale with gain:', exhaleGainMultiplier);
+            playCueSound(exhaleAudio, exhaleGainMultiplier);
+        });
+    }
     
     // Music gain
-    musicGainSlider.addEventListener('input', () => {
-        musicGainMultiplier = parseFloat(musicGainSlider.value);
-        musicGainValue.textContent = musicGainMultiplier.toFixed(1);
-        // Update currently playing music
-        updateMusicVolume();
-    });
+    if (musicGainSlider) {
+        musicGainSlider.addEventListener('input', () => {
+            musicGainMultiplier = parseFloat(musicGainSlider.value);
+            musicGainValue.textContent = musicGainMultiplier.toFixed(1);
+            console.log('Music gain changed to:', musicGainMultiplier);
+            // Update currently playing music
+            updateMusicVolume();
+        });
+    }
     
     // Inhale gain
-    inhaleGainSlider.addEventListener('input', () => {
-        inhaleGainMultiplier = parseFloat(inhaleGainSlider.value);
-        inhaleGainValue.textContent = inhaleGainMultiplier.toFixed(1);
-    });
+    if (inhaleGainSlider) {
+        inhaleGainSlider.addEventListener('input', () => {
+            inhaleGainMultiplier = parseFloat(inhaleGainSlider.value);
+            inhaleGainValue.textContent = inhaleGainMultiplier.toFixed(1);
+            console.log('Inhale gain changed to:', inhaleGainMultiplier);
+        });
+    }
     
     // Exhale gain
-    exhaleGainSlider.addEventListener('input', () => {
-        exhaleGainMultiplier = parseFloat(exhaleGainSlider.value);
-        exhaleGainValue.textContent = exhaleGainMultiplier.toFixed(1);
-    });
+    if (exhaleGainSlider) {
+        exhaleGainSlider.addEventListener('input', () => {
+            exhaleGainMultiplier = parseFloat(exhaleGainSlider.value);
+            exhaleGainValue.textContent = exhaleGainMultiplier.toFixed(1);
+            console.log('Exhale gain changed to:', exhaleGainMultiplier);
+        });
+    }
+    
+    console.log('Admin panel initialized');
 }
 
 // Update admin info display
 function updateAdminInfo() {
+    if (crossfadeDurationInfo) {
+        crossfadeDurationInfo.textContent = CROSSFADE_DURATION;
+    }
+    
     if (!isSessionActive) {
-        musicPositionInfo.textContent = '--';
-        activeSourceInfo.textContent = '--';
+        if (musicPositionInfo) musicPositionInfo.textContent = '--';
+        if (activeSourceInfo) activeSourceInfo.textContent = '--';
         return;
     }
     
@@ -481,12 +527,16 @@ function updateAdminInfo() {
         ? (musicSource1 ? musicSource1._audioElement : null)
         : (musicSource2 ? musicSource2._audioElement : null);
     
-    if (currentAudio) {
+    if (currentAudio && musicPositionInfo) {
         musicPositionInfo.textContent = currentAudio.currentTime.toFixed(1) + 's';
     }
     
-    musicDurationInfo.textContent = musicDuration.toFixed(1) + 's';
-    activeSourceInfo.textContent = activeSource + (crossfadeScheduled ? ' (crossfading)' : '');
+    if (musicDurationInfo) {
+        musicDurationInfo.textContent = musicDuration.toFixed(1) + 's';
+    }
+    if (activeSourceInfo) {
+        activeSourceInfo.textContent = activeSource + (crossfadeScheduled ? ' (crossfading)' : '');
+    }
 }
 
 // Initialize the app
